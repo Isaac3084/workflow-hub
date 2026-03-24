@@ -1,0 +1,192 @@
+{
+    "name": "AI Feedback Analyzer & Router (Offline Demo)",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "trigger",
+            "name": "When clicking \"Execute Workflow\"",
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                180,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "feedback_text",
+                            "value": "Hi, my name is Sarah Jenkins. I received the laptop stand yesterday, but the screws were missing from the box. I am really frustrated because I can't assemble it. Please send the missing parts!"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "generate_sample",
+            "name": "Sample Customer Review",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                400,
+                240
+            ],
+            "notes": "Simulates an incoming email or support ticket."
+        },
+        {
+            "parameters": {
+                "model": "llama3.1:8b",
+                "prompt": "=You are an automated data extraction assistant. \nAnalyze the following customer feedback and extract the information into a strict JSON object.\n\nFeedback:\n\"{{ $json.feedback_text }}\"\n\nRequired JSON format:\n{\n  \"CustomerName\": \"Full name if available, else Unknown\",\n  \"Sentiment\": \"Positive, Negative, or Neutral\",\n  \"IssueSummary\": \"A 3-5 word summary of the main point\"\n}\n\nDo NOT include any other text, greetings, or markdown formatting. ONLY output the raw JSON object."
+            },
+            "id": "ollama",
+            "name": "Ollama AI (Read & Extract)",
+            "type": "@n8n/n8n-nodes-langchain.ollama",
+            "typeVersion": 1,
+            "position": [
+                620,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "for (const item of $input.all()) {\n  try {\n    // Clean up markdown block if the AI adds it\n    let clean = item.json.response.replace(/```json/gi, '').replace(/```/g, '').trim();\n    item.json.ai_insights = JSON.parse(clean);\n  } catch (error) {\n    item.json.ai_insights = { \"error\": \"Failed to parse response\", \"raw\": item.json.response };\n  }\n}\nreturn $input.all();"
+            },
+            "id": "parser",
+            "name": "Parse AI Output",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                840,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ $json.ai_insights.Sentiment }}",
+                            "operation": "contains",
+                            "value2": "Negative"
+                        }
+                    ]
+                }
+            },
+            "id": "router",
+            "name": "Is Negative Sentiment?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1080,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "action",
+                            "value": "Escalate to Human Support Agent"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "escalate",
+            "name": "Urgent Support Escalation",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                1320,
+                140
+            ]
+        },
+        {
+            "parameters": {
+                "values": {
+                    "string": [
+                        {
+                            "name": "action",
+                            "value": "Send standard automated reply"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "standard_reply",
+            "name": "Standard Routing",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                1320,
+                340
+            ]
+        }
+    ],
+    "connections": {
+        "When clicking \"Execute Workflow\"": {
+            "main": [
+                [
+                    {
+                        "node": "Sample Customer Review",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Sample Customer Review": {
+            "main": [
+                [
+                    {
+                        "node": "Ollama AI (Read & Extract)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Ollama AI (Read & Extract)": {
+            "main": [
+                [
+                    {
+                        "node": "Parse AI Output",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse AI Output": {
+            "main": [
+                [
+                    {
+                        "node": "Is Negative Sentiment?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Negative Sentiment?": {
+            "main": [
+                [
+                    {
+                        "node": "Urgent Support Escalation",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Standard Routing",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

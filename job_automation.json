@@ -1,0 +1,165 @@
+{
+    "name": "AI Real-Time Resume Job Search Agent",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "job-agent",
+                "responseMode": "lastNode"
+            },
+            "id": "webhook_trigger",
+            "name": "Webhook Trigger",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                100,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const resume = $json.body.resume_text;\nconst location = $json.body.location;\n\nif (!resume || !location) {\n  throw new Error('resume_text and location are required in request body');\n}\n\nreturn [{ json: { resume_text: resume, location: location } }];"
+            },
+            "id": "extract_input",
+            "name": "Extract Resume + Location",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                300,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const resumeText = $json.resume_text;\nconst location = $json.location;\n\nconst prompt = `You are a professional career analyst. Analyze this resume and return ONLY raw JSON, no markdown, no explanation:\n\n{\"experience_level\": \"fresher\", \"primary_roles\": [\"ML Engineer\"], \"skills\": [\"Python\"], \"search_keywords\": \"machine learning engineer\"}\n\nResume:\n${resumeText}`;\n\ntry {\n  const res = await fetch('http://127.0.0.1:11434/api/generate', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({ model: 'llama3.1:8b', prompt, stream: false })\n  });\n  const data = await res.json();\n  const raw = data.response.replace(/```json/gi,'').replace(/```/g,'').trim();\n  const match = raw.match(/\\{[\\s\\S]*\\}/);\n  if (!match) throw new Error('No JSON in AI response');\n  const parsed = JSON.parse(match[0]);\n  return [{ json: { ...parsed, location, resume_text: resumeText } }];\n} catch(e) {\n  return [{ json: {\n    experience_level: 'fresher',\n    primary_roles: ['Machine Learning Engineer'],\n    skills: ['Python', 'TensorFlow'],\n    search_keywords: 'machine learning engineer',\n    location, resume_text: resumeText, ai_error: e.message\n  }}];\n}"
+            },
+            "id": "ai_resume_analysis",
+            "name": "AI Resume Analysis",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                500,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "let clean = $json.response.replace(/```json/gi, '').replace(/```/g, '').trim();\nlet parsed = JSON.parse(clean);\n\nreturn [{ json: { ...parsed, location: $node[\"Extract Resume + Location\"].json.location } }];"
+            },
+            "id": "parse_ai",
+            "name": "Parse AI Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                700,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const role = $json.primary_roles[0] || 'Software Engineer';\nconst location = $json.location;\n\nconst query = encodeURIComponent(`${role} ${location}`);\nconst apiUrl = `https://remotive.com/api/remote-jobs?search=${query}`;\n\nconst response = await fetch(apiUrl);\nconst data = await response.json();\n\nconst jobs = (data.jobs || []).slice(0, 15).map(job => ({\n  job_title: job.title,\n  company_name: job.company_name,\n  job_link: job.url,\n  location: job.candidate_required_location\n}));\n\nreturn jobs.map(job => ({ json: job }));"
+            },
+            "id": "fetch_jobs",
+            "name": "Fetch Live Jobs",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                900,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "jsonToSheet",
+                "options": {}
+            },
+            "id": "convert_excel",
+            "name": "Convert To Excel",
+            "type": "n8n-nodes-base.spreadsheetFile",
+            "typeVersion": 1,
+            "position": [
+                1100,
+                300
+            ]
+        },
+        {
+            "parameters": {},
+            "id": "respond_file",
+            "name": "Respond With Excel",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                1300,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Resume + Location",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Resume + Location": {
+            "main": [
+                [
+                    {
+                        "node": "AI Resume Analysis",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Resume Analysis": {
+            "main": [
+                [
+                    {
+                        "node": "Parse AI Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse AI Response": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Live Jobs",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Live Jobs": {
+            "main": [
+                [
+                    {
+                        "node": "Convert To Excel",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Convert To Excel": {
+            "main": [
+                [
+                    {
+                        "node": "Respond With Excel",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

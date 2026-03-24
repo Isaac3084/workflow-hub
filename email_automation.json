@@ -1,0 +1,65 @@
+{
+    "name": "Simple AI Email",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "ManualTrigger",
+            "name": "When clicking \"Execute Workflow\"",
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                460,
+                460
+            ]
+        },
+        {
+            "parameters": {
+                "model": "llama3.1:8b",
+                "prompt": "Write a professional email greeting."
+            },
+            "id": "OllamaNode",
+            "name": "Ollama",
+            "type": "@n8n/n8n-nodes-langchain.ollama",
+            "typeVersion": 1,
+            "position": [
+                680,
+                460
+            ]
+        },
+        {
+            "parameters": {},
+            "id": "GmailNode",
+            "name": "Gmail",
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [
+                900,
+                460
+            ]
+        }
+    ],
+    "connections": {
+        "When clicking \"Execute Workflow\"": {
+            "main": [
+                [
+                    {
+                        "node": "Ollama",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Ollama": {
+            "main": [
+                [
+                    {
+                        "node": "Gmail",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

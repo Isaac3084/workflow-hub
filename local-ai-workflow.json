@@ -1,0 +1,92 @@
+{
+    "name": "Local AI Demo - Llama 3.1",
+    "nodes": [
+        {
+            "parameters": {
+                "model": "llama3.1",
+                "options": {}
+            },
+            "id": "6c8f6e2a-1234-4b5a-9876-123456789abc",
+            "name": "Ollama Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+            "typeVersion": 1,
+            "position": [
+                460,
+                460
+            ],
+            "credentials": {
+                "ollamaApi": {
+                    "id": "ollama-local-cred",
+                    "name": "Local Ollama"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.chatInput }}",
+                "options": {}
+            },
+            "id": "7d9g7h3b-5678-4c6d-1234-987654321xyz",
+            "name": "Basic LLM Chain",
+            "type": "@n8n/n8n-nodes-langchain.chainLlm",
+            "typeVersion": 1.4,
+            "position": [
+                860,
+                340
+            ]
+        },
+        {
+            "parameters": {
+                "path": "chat",
+                "options": {}
+            },
+            "id": "1a2b3c4d-5678-9012-3456-7890abcdef12",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                580,
+                340
+            ],
+            "webhookId": "local-ai-chat"
+        },
+        {
+            "parameters": {
+                "content": "## 🚀 Local AI Demo\nThis workflow demonstrates connecting **Workflow Hub** to a **Local Llama 3.1** model running via Ollama.\n\n### How it works:\n1. **Webhook** receives text.\n2. **Ollama Node** processes it locally.\n3. **Response** is sent back.\n\n**Note:** Ensure `ollama run llama3.1` is running!"
+            },
+            "id": "9z8y7x6w-5432-1098-7654-3210zyxwvuts",
+            "name": "Sticky Note",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [
+                380,
+                180
+            ]
+        }
+    ],
+    "connections": {
+        "Ollama Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Basic LLM Chain",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Basic LLM Chain",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
